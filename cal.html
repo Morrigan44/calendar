@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -15,8 +15,11 @@
   <ul id="events"></ul>
 
   <script>
-    const CAL_ID = 'wgnews10@gmail.com';
-    const API_KEY = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
+    // Raw and encoded calendar ID
+    const CAL_ID_RAW = 'wgnews10@gmail.com';
+    const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
+
+    const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
     // Helper to read ?offset=N (default 0)
@@ -33,7 +36,11 @@
       start.setDate(start.getDate() + offset);
       const end = new Date(start);
       end.setHours(23,59,59,999);
-      return { timeMin: start.toISOString(), timeMax: end.toISOString(), label: start.toDateString() };
+      return {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        label:   start.toDateString()
+      };
     }
 
     (function(){
@@ -41,35 +48,40 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
-        new URLSearchParams({
-          key: API_KEY,
-          timeMin,
-          timeMax,
-          maxResults: MAX_EVENTS,
-          singleEvents: true,
-          orderBy: 'startTime'
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
+                + new URLSearchParams({
+                    key:         API_KEY,
+                    timeMin,
+                    timeMax,
+                    maxResults:  MAX_EVENTS,
+                    singleEvents:true,
+                    orderBy:     'startTime'
+                  });
+
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error(`API returned ${res.status}`);
+          return res.json();
         })
-      )
-      .then(res => res.json())
-      .then(data => {
-        const ul = document.getElementById('events');
-        if (!data.items || !data.items.length) {
-          ul.innerHTML = '<li>No events.</li>';
-          return;
-        }
-        data.items.forEach(ev => {
-          const start = new Date(ev.start.dateTime || ev.start.date).toLocaleTimeString();
-          const li = document.createElement('li');
-          li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
-          ul.appendChild(li);
+        .then(data => {
+          const ul = document.getElementById('events');
+          if (!data.items || data.items.length === 0) {
+            ul.innerHTML = '<li>No events.</li>';
+            return;
+          }
+          data.items.forEach(ev => {
+            const start = new Date(ev.start.dateTime || ev.start.date)
+                            .toLocaleTimeString();
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
+            ul.appendChild(li);
+          });
+        })
+        .catch(err => {
+          document.getElementById('events')
+                  .innerHTML = `<li>Error loading calendar: ${err.message}</li>`;
+          console.error(err);
         });
-      })
-      .catch(err => {
-        document.getElementById('events').innerHTML = '<li>Error loading calendar.</li>';
-        console.error(err);
-      });
     })();
   </script>
 </body>
