@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -8,28 +8,27 @@
     ul { list-style: none; padding: 0; }
     li { padding: 4px 0; border-bottom: 1px solid #444; }
     .time { font-weight: bold; margin-right: 8px; }
+    .error { color: #f88; padding: 8px; }
   </style>
 </head>
 <body>
-  <h3 style="margin:8px;">Events for <span id="dayLabel">…</span></h3>
+  <h3 style="margin:8px;">
+    Events for <span id="dayLabel">…</span>
+  </h3>
   <ul id="events"></ul>
+  <div id="err" class="error"></div>
 
   <script>
-    // Raw and encoded calendar ID
     const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
-
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
-    // Helper to read ?offset=N (default 0)
     function getOffset() {
-      const params = new URLSearchParams(window.location.search);
-      const n = parseInt(params.get('offset'), 10);
+      const n = parseInt(new URLSearchParams(location.search).get('offset'), 10);
       return isNaN(n) ? 0 : n;
     }
 
-    // Compute the date window for that offset
     function getWindow(offset) {
       const start = new Date();
       start.setHours(0,0,0,0);
@@ -48,20 +47,31 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
-                + new URLSearchParams({
-                    key:         API_KEY,
-                    timeMin,
-                    timeMax,
-                    maxResults:  MAX_EVENTS,
-                    singleEvents:true,
-                    orderBy:     'startTime'
-                  });
+      // Build the full URL
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
+        new URLSearchParams({
+          key:         API_KEY,
+          timeMin,
+          timeMax,
+          maxResults:  MAX_EVENTS,
+          singleEvents:true,
+          orderBy:     'startTime'
+        });
+
+      // Debug: show URL in console
+      console.log('Fetching:', url);
 
       fetch(url)
         .then(res => {
-          if (!res.ok) throw new Error(`API returned ${res.status}`);
-          return res.json();
+          // Clone the response to inspect JSON even on error
+          return res.json()
+            .then(json => {
+              if (!res.ok) {
+                const msg = (json.error && json.error.message) || `HTTP ${res.status}`;
+                throw new Error(msg);
+              }
+              return json;
+            });
         })
         .then(data => {
           const ul = document.getElementById('events');
@@ -78,9 +88,9 @@
           });
         })
         .catch(err => {
-          document.getElementById('events')
-                  .innerHTML = `<li>Error loading calendar: ${err.message}</li>`;
-          console.error(err);
+          // Show error on page and console
+          document.getElementById('err').textContent = `Error: ${err.message}`;
+          console.error('Calendar API error →', err);
         });
     })();
   </script>
