@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SL Calendar Display</title>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #202020; color: #fff; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 4px 0; border-bottom: 1px solid #444; }
+    .time { font-weight: bold; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h3 style="margin:8px;">Events for <span id="dayLabel">…</span></h3>
+  <ul id="events"></ul>
+
+  <script>
+    const CAL_ID = 'YOUR_CALENDAR_ID@group.calendar.google.com';
+    const API_KEY = 'YOUR_API_KEY';
+    const MAX_EVENTS = 10;
+
+    // Helper to read ?offset=N (default 0)
+    function getOffset() {
+      const params = new URLSearchParams(window.location.search);
+      const n = parseInt(params.get('offset'), 10);
+      return isNaN(n) ? 0 : n;
+    }
+
+    // Compute the date window for that offset
+    function getWindow(offset) {
+      const start = new Date();
+      start.setHours(0,0,0,0);
+      start.setDate(start.getDate() + offset);
+      const end = new Date(start);
+      end.setHours(23,59,59,999);
+      return { timeMin: start.toISOString(), timeMax: end.toISOString(), label: start.toDateString() };
+    }
+
+    (function(){
+      const offset = getOffset();
+      const { timeMin, timeMax, label } = getWindow(offset);
+      document.getElementById('dayLabel').textContent = label;
+
+      fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
+        new URLSearchParams({
+          key: API_KEY,
+          timeMin,
+          timeMax,
+          maxResults: MAX_EVENTS,
+          singleEvents: true,
+          orderBy: 'startTime'
+        })
+      )
+      .then(res => res.json())
+      .then(data => {
+        const ul = document.getElementById('events');
+        if (!data.items || !data.items.length) {
+          ul.innerHTML = '<li>No events.</li>';
+          return;
+        }
+        data.items.forEach(ev => {
+          const start = new Date(ev.start.dateTime || ev.start.date).toLocaleTimeString();
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
+          ul.appendChild(li);
+        });
+      })
+      .catch(err => {
+        document.getElementById('events').innerHTML = '<li>Error loading calendar.</li>';
+        console.error(err);
+      });
+    })();
+  </script>
+</body>
+</html>
