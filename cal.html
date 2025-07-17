@@ -6,17 +6,16 @@
   <style>
     body { margin: 0; font-family: sans-serif; background: #202020; color: #fff; }
     ul { list-style: none; padding: 0; }
-    li { padding: 4px 0; border-bottom: 1px solid #444; }
+    li { padding: 8px 0; border-bottom: 1px solid #444; }
     .time { font-weight: bold; margin-right: 8px; }
-    .error { color: #f88; padding: 8px; }
+    .location { display: block; margin-top: 4px; font-size: 0.9em; }
+    .location a { color: #8af; text-decoration: underline; }
   </style>
 </head>
 <body>
-  <h3 style="margin:8px;">
-    Events for <span id="dayLabel">…</span>
-  </h3>
+  <h3 style="margin:8px;">Events for <span id="dayLabel">…</span></h3>
   <ul id="events"></ul>
-  <div id="err" class="error"></div>
+  <div id="err" style="color:#f88; padding:8px;"></div>
 
   <script>
     const CAL_ID_RAW = 'wgnews10@gmail.com';
@@ -47,7 +46,6 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      // Build the full URL
       const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
         new URLSearchParams({
           key:         API_KEY,
@@ -58,21 +56,14 @@
           orderBy:     'startTime'
         });
 
-      // Debug: show URL in console
-      console.log('Fetching:', url);
-
       fetch(url)
-        .then(res => {
-          // Clone the response to inspect JSON even on error
-          return res.json()
-            .then(json => {
-              if (!res.ok) {
-                const msg = (json.error && json.error.message) || `HTTP ${res.status}`;
-                throw new Error(msg);
-              }
-              return json;
-            });
-        })
+        .then(res => res.json().then(json => {
+          if (!res.ok) {
+            const msg = (json.error && json.error.message) || `HTTP ${res.status}`;
+            throw new Error(msg);
+          }
+          return json;
+        }))
         .then(data => {
           const ul = document.getElementById('events');
           if (!data.items || data.items.length === 0) {
@@ -82,15 +73,34 @@
           data.items.forEach(ev => {
             const start = new Date(ev.start.dateTime || ev.start.date)
                             .toLocaleTimeString();
+            // build the base list item
             const li = document.createElement('li');
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
+
+            // if there's a location field, make it a link
+            if (ev.location) {
+              let href = '';
+              const rawLoc = ev.location.trim();
+              if (rawLoc.match(/^https?:\/\//i)) {
+                // if it's already a URL, link directly
+                href = rawLoc;
+              } else {
+                // otherwise link to Google Maps search
+                href = 'https://maps.google.com/?q=' 
+                     + encodeURIComponent(rawLoc);
+              }
+              const locEl = document.createElement('div');
+              locEl.className = 'location';
+              locEl.innerHTML = `<a href="${href}" target="_blank">${rawLoc}</a>`;
+              li.appendChild(locEl);
+            }
+
             ul.appendChild(li);
           });
         })
         .catch(err => {
-          // Show error on page and console
           document.getElementById('err').textContent = `Error: ${err.message}`;
-          console.error('Calendar API error →', err);
+          console.error(err);
         });
     })();
   </script>
