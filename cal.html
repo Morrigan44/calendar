@@ -1,108 +1,151 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>SL Calendar Display</title>
+  <title>10-Day SL Calendar</title>
   <style>
-    body { margin: 0; font-family: sans-serif; background: #202020; color: #fff; }
-    ul { list-style: none; padding: 0; }
-    li { padding: 8px 0; border-bottom: 1px solid #444; }
-    .time { font-weight: bold; margin-right: 8px; }
-    .location { display: block; margin-top: 4px; font-size: 0.9em; }
-    .location a { color: #8af; text-decoration: underline; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: sans-serif;
+      background: #202020;
+      color: #fff;
+    }
+    .days-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-gap: 16px;
+    }
+    .day-block {
+      background: #2a2a2a;
+      padding: 12px;
+      border-radius: 8px;
+    }
+    .day-block h4 {
+      margin: 0 0 8px;
+      font-size: 1.1em;
+      border-bottom: 1px solid #444;
+      padding-bottom: 4px;
+    }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li {
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    .time {
+      font-weight: bold;
+      margin-right: 6px;
+    }
+    .location a {
+      color: #8af;
+      text-decoration: underline;
+      font-size: 0.9em;
+      display: block;
+      margin-top: 2px;
+    }
+    #err {
+      color: #f88;
+      margin-top: 12px;
+    }
   </style>
 </head>
 <body>
-  <h3 style="margin:8px;">Events for <span id="dayLabel">…</span></h3>
-  <ul id="events"></ul>
-  <div id="err" style="color:#f88; padding:8px;"></div>
+
+  <h3>Upcoming 10 Days</h3>
+  <div id="calendar" class="days-container"></div>
+  <div id="err"></div>
 
   <script>
     const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
-    const MAX_EVENTS = 10;
+    const DAYS       = 10;
+    const MAX_EVENTS = 250;  // total over all days
 
-    function getOffset() {
-      const n = parseInt(new URLSearchParams(location.search).get('offset'), 10);
-      return isNaN(n) ? 0 : n;
-    }
+    // build date window: from today 00:00 to 10 days later 23:59
+    const start = new Date();
+    start.setHours(0,0,0,0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + DAYS - 1);
+    end.setHours(23,59,59,999);
 
-    function getWindow(offset) {
-      const start = new Date();
-      start.setHours(0,0,0,0);
-      start.setDate(start.getDate() + offset);
-      const end = new Date(start);
-      end.setHours(23,59,59,999);
-      return {
-        timeMin: start.toISOString(),
-        timeMax: end.toISOString(),
-        label:   start.toDateString()
-      };
-    }
+    const params = new URLSearchParams({
+      key:         API_KEY,
+      timeMin:     start.toISOString(),
+      timeMax:     end.toISOString(),
+      maxResults:  MAX_EVENTS,
+      singleEvents:true,
+      orderBy:     'startTime'
+    });
 
-    (function(){
-      const offset = getOffset();
-      const { timeMin, timeMax, label } = getWindow(offset);
-      document.getElementById('dayLabel').textContent = label;
-
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
-        new URLSearchParams({
-          key:         API_KEY,
-          timeMin,
-          timeMax,
-          maxResults:  MAX_EVENTS,
-          singleEvents:true,
-          orderBy:     'startTime'
-        });
-
-      fetch(url)
-        .then(res => res.json().then(json => {
-          if (!res.ok) {
-            const msg = (json.error && json.error.message) || `HTTP ${res.status}`;
-            throw new Error(msg);
-          }
-          return json;
-        }))
-        .then(data => {
-          const ul = document.getElementById('events');
-          if (!data.items || data.items.length === 0) {
-            ul.innerHTML = '<li>No events.</li>';
-            return;
-          }
-          data.items.forEach(ev => {
-            const start = new Date(ev.start.dateTime || ev.start.date)
-                            .toLocaleTimeString();
-            // build the base list item
-            const li = document.createElement('li');
-            li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
-
-            // if there's a location field, make it a link
-            if (ev.location) {
-              let href = '';
-              const rawLoc = ev.location.trim();
-              if (rawLoc.match(/^https?:\/\//i)) {
-                // if it's already a URL, link directly
-                href = rawLoc;
-              } else {
-                // otherwise link to Google Maps search
-                href = 'https://maps.google.com/?q=' 
-                     + encodeURIComponent(rawLoc);
-              }
-              const locEl = document.createElement('div');
-              locEl.className = 'location';
-              locEl.innerHTML = `<a href="${href}" target="_blank">${rawLoc}</a>`;
-              li.appendChild(locEl);
+    fetch(`https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` + params)
+      .then(res => res.json().then(json => {
+        if (!res.ok) {
+          throw new Error((json.error && json.error.message) || `HTTP ${res.status}`);
+        }
+        return json;
+      }))
+      .then(data => {
+        const container = document.getElementById('calendar');
+        // prepare empty array for each day
+        const days = [];
+        for (let i = 0; i < DAYS; i++) {
+          const d = new Date(start);
+          d.setDate(d.getDate() + i);
+          days.push({ date: d, events: [] });
+        }
+        // group events into days
+        data.items.forEach(ev => {
+          const dt = new Date(ev.start.dateTime || ev.start.date);
+          // find matching day slot
+          days.forEach(slot => {
+            if (slot.date.toDateString() === dt.toDateString()) {
+              slot.events.push(ev);
             }
-
-            ul.appendChild(li);
           });
-        })
-        .catch(err => {
-          document.getElementById('err').textContent = `Error: ${err.message}`;
-          console.error(err);
         });
-    })();
+        // render
+        days.forEach(slot => {
+          const block = document.createElement('div');
+          block.className = 'day-block';
+          const title = document.createElement('h4');
+          title.textContent = slot.date.toDateString();
+          block.appendChild(title);
+
+          const ul = document.createElement('ul');
+          if (slot.events.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'No events.';
+            ul.appendChild(li);
+          } else {
+            slot.events.forEach(ev => {
+              const li = document.createElement('li');
+              const time = new Date(ev.start.dateTime || ev.start.date)
+                              .toLocaleTimeString();
+              li.innerHTML = `<span class="time">${time}</span>${ev.summary}`;
+              // add location link
+              if (ev.location) {
+                const rawLoc = ev.location.trim();
+                const href = rawLoc.match(/^https?:\/\//i)
+                  ? rawLoc
+                  : 'https://maps.google.com/?q=' + encodeURIComponent(rawLoc);
+                const locEl = document.createElement('div');
+                locEl.className = 'location';
+                locEl.innerHTML = `<a href="${href}" target="_blank">${rawLoc}</a>`;
+                li.appendChild(locEl);
+              }
+              ul.appendChild(li);
+            });
+          }
+
+          block.appendChild(ul);
+          container.appendChild(block);
+        });
+      })
+      .catch(err => {
+        document.getElementById('err').textContent = `Error: ${err.message}`;
+        console.error(err);
+      });
   </script>
 </body>
 </html>
