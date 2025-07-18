@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -15,16 +15,8 @@
     ul { list-style: none; padding: 0; margin: 0; }
     li { padding: 12px 0; border-bottom: 1px solid #444; }
     .time { font-weight: bold; margin-right: 8px; }
-    .location {
-      display: block;
-      margin-top: 6px;
-      font-size: 0.9em;
-    }
-    .location a {
-      color: #8af;
-      text-decoration: underline;
-      cursor: pointer;
-    }
+    .location { display: block; margin-top: 6px; font-size: 0.9em; }
+    .location a { color: #8af; text-decoration: underline; cursor: pointer; }
     #err { color: #f88; padding: 12px; margin-top: 16px; }
   </style>
 </head>
@@ -40,7 +32,6 @@
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
-    // Grab the params injected by LSL
     const params = new URLSearchParams(window.location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
     const lslUrl = params.get('lsl') || '';
@@ -59,61 +50,59 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
-        new URLSearchParams({
-          key:          API_KEY,
-          timeMin,
-          timeMax,
-          maxResults:   MAX_EVENTS,
-          singleEvents: true,
-          orderBy:      'startTime'
-        });
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
+                + new URLSearchParams({
+                    key:          API_KEY,
+                    timeMin,
+                    timeMax,
+                    maxResults:   MAX_EVENTS,
+                    singleEvents: true,
+                    orderBy:      'startTime'
+                  });
 
       fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error(`API error ${res.status}`);
-          return res.json();
-        })
-        .then(data => {
-          const ul = document.getElementById('events');
-          ul.innerHTML = '';
+      .then(res => {
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        const ul = document.getElementById('events');
+        ul.innerHTML = '';
 
-          if (!data.items || data.items.length === 0) {
-            ul.innerHTML = '<li>No events.</li>';
-            return;
+        if (!data.items || data.items.length === 0) {
+          ul.innerHTML = '<li>No events.</li>';
+          return;
+        }
+
+        data.items.forEach(ev => {
+          const li = document.createElement('li');
+          const start = new Date(ev.start.dateTime || ev.start.date)
+                          .toLocaleTimeString();
+          li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
+
+          if (ev.location && lslUrl) {
+            const rawLoc = ev.location.trim();
+            const locEl = document.createElement('div');
+            locEl.className = 'location';
+            // Use an <img> ping to call your LSL URL
+            locEl.innerHTML = `
+              <a href="javascript:void(0)"
+                 onclick="
+                   new Image().src='${lslUrl}?loc=${encodeURIComponent(rawLoc)}';
+                   return false;
+                 ">
+                ${rawLoc}
+              </a>`;
+            li.appendChild(locEl);
           }
 
-          data.items.forEach(ev => {
-            const li = document.createElement('li');
-            const start = new Date(ev.start.dateTime || ev.start.date)
-                            .toLocaleTimeString();
-            li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
-
-            if (ev.location && lslUrl) {
-              const rawLoc = ev.location.trim();
-              const locEl = document.createElement('div');
-              locEl.className = 'location';
-
-              // javascript: href triggers your LSL callback, no navigation
-              const a = document.createElement('a');
-              a.href = "javascript:fetch('" 
-                     + lslUrl 
-                     + "?loc=" 
-                     + encodeURIComponent(rawLoc) 
-                     + "').catch(console.error);";
-              a.textContent = rawLoc;
-
-              locEl.appendChild(a);
-              li.appendChild(locEl);
-            }
-
-            ul.appendChild(li);
-          });
-        })
-        .catch(err => {
-          document.getElementById('err').textContent = `Error: ${err.message}`;
-          console.error(err);
+          ul.appendChild(li);
         });
+      })
+      .catch(err => {
+        document.getElementById('err').textContent = `Error: ${err.message}`;
+        console.error(err);
+      });
     })();
   </script>
 
