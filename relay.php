@@ -1,4 +1,5 @@
 <?php
+header("Content-Type: text/plain");
 // Get params from URL
 $calendarId = $_GET['calendarId'];
 $apiKey = $_GET['key'];
