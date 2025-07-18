@@ -16,7 +16,7 @@
     li { padding: 12px 0; border-bottom: 1px solid #444; }
     .time { font-weight: bold; margin-right: 8px; }
     .location { display: block; margin-top: 6px; font-size: 0.9em; }
-    .location a { color: #8af; text-decoration: underline; cursor: pointer; }
+    .location a { color: #8af; text-decoration: underline; }
     #err { color: #f88; padding: 12px; margin-top: 16px; }
   </style>
 </head>
@@ -32,6 +32,7 @@
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
+    // Grab the injected params
     const params = new URLSearchParams(window.location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
     const lslUrl = params.get('lsl') || '';
@@ -61,48 +62,43 @@
                   });
 
       fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error(`API error ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        const ul = document.getElementById('events');
-        ul.innerHTML = '';
+        .then(res => {
+          if (!res.ok) throw new Error(`API error ${res.status}`);
+          return res.json();
+        })
+        .then(data => {
+          const ul = document.getElementById('events');
+          ul.innerHTML = '';
 
-        if (!data.items || data.items.length === 0) {
-          ul.innerHTML = '<li>No events.</li>';
-          return;
-        }
-
-        data.items.forEach(ev => {
-          const li = document.createElement('li');
-          const start = new Date(ev.start.dateTime || ev.start.date)
-                          .toLocaleTimeString();
-          li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
-
-          if (ev.location && lslUrl) {
-            const rawLoc = ev.location.trim();
-            const locEl = document.createElement('div');
-            locEl.className = 'location';
-            // Use an <img> ping to call your LSL URL
-            locEl.innerHTML = `
-              <a href="javascript:void(0)"
-                 onclick="
-                   new Image().src='${lslUrl}?loc=${encodeURIComponent(rawLoc)}';
-                   return false;
-                 ">
-                ${rawLoc}
-              </a>`;
-            li.appendChild(locEl);
+          if (!data.items || !data.items.length) {
+            ul.innerHTML = '<li>No events.</li>';
+            return;
           }
 
-          ul.appendChild(li);
+          data.items.forEach(ev => {
+            const li = document.createElement('li');
+            const start = new Date(ev.start.dateTime || ev.start.date)
+                            .toLocaleTimeString();
+            li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
+
+            if (ev.location && lslUrl) {
+              const rawLoc = ev.location.trim();
+              const locEl = document.createElement('div');
+              locEl.className = 'location';
+              // real href to your LSL callback; clicking fires the GET
+              locEl.innerHTML = `
+                <a href="${lslUrl}?loc=${encodeURIComponent(rawLoc)}">
+                  ${rawLoc}
+                </a>`;
+              li.appendChild(locEl);
+            }
+
+            ul.appendChild(li);
+          });
+        })
+        .catch(err => {
+          document.getElementById('err').textContent = `Error: ${err.message}`;
         });
-      })
-      .catch(err => {
-        document.getElementById('err').textContent = `Error: ${err.message}`;
-        console.error(err);
-      });
     })();
   </script>
 
