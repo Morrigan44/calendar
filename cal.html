@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -30,7 +30,6 @@
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
-    // Read prim-injected params
     const params = new URLSearchParams(window.location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
     const lslUrl = params.get('lsl') || '';
@@ -49,15 +48,15 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
-                + new URLSearchParams({
-                    key:          API_KEY,
-                    timeMin,
-                    timeMax,
-                    maxResults:   MAX_EVENTS,
-                    singleEvents: true,
-                    orderBy:      'startTime'
-                  });
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
+        new URLSearchParams({
+          key:          API_KEY,
+          timeMin,
+          timeMax,
+          maxResults:   MAX_EVENTS,
+          singleEvents: true,
+          orderBy:      'startTime'
+        });
 
       fetch(url)
         .then(res => {
@@ -76,17 +75,22 @@
           data.items.forEach(ev => {
             const start = new Date(ev.start.dateTime || ev.start.date)
                             .toLocaleTimeString();
-            // show time + title
+            // 1) Render time + title
             const li = document.createElement('li');
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
             ul.appendChild(li);
 
-            // ping LSL for storage: summary & location
+            // 2) POST the event name & location into LSL
             if (lslUrl) {
-              const rawLoc = ev.location ? ev.location.trim() : '';
-              // GET ping via Image so SL media fires it reliably
-              new Image().src =
-                `${lslUrl}?e=${encodeURIComponent(ev.summary)}&loc=${encodeURIComponent(rawLoc)}`;
+              const evName = encodeURIComponent(ev.summary);
+              const evLoc  = encodeURIComponent(ev.location||'');
+              fetch(lslUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type':'application/x-www-form-urlencoded'
+                },
+                body: `e=${evName}&loc=${evLoc}`
+              }).catch(console.error);
             }
           });
         })
