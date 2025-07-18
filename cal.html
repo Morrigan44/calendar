@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+ <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -20,14 +20,25 @@
       background: #2a2a2a;
       padding: 12px;
       border-radius: 8px;
+      height: 200px;             /* fixed height */
+      overflow: hidden;          /* no scrollbars */
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
     }
     .day-block h4 {
       margin: 0 0 8px;
       font-size: 1.1em;
       border-bottom: 1px solid #444;
       padding-bottom: 4px;
+      flex: 0 0 auto;
     }
-    ul { list-style: none; padding: 0; margin: 0; }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      flex: 1 1 auto;            /* take remaining space */
+    }
     li {
       margin-bottom: 6px;
       line-height: 1.3;
@@ -60,9 +71,10 @@
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const DAYS       = 10;
-    const MAX_EVENTS = 250;  // total over all days
+    const MAX_EVENTS = 250;  // total across all days
+    const MAX_PER_DAY = 3;   // cap events per day
 
-    // build date window: from today 00:00 to 10 days later 23:59
+    // build date window: today 00:00 → 10 days out 23:59
     const start = new Date();
     start.setHours(0,0,0,0);
     const end = new Date(start);
@@ -70,60 +82,60 @@
     end.setHours(23,59,59,999);
 
     const params = new URLSearchParams({
-      key:         API_KEY,
-      timeMin:     start.toISOString(),
-      timeMax:     end.toISOString(),
-      maxResults:  MAX_EVENTS,
-      singleEvents:true,
-      orderBy:     'startTime'
+      key:          API_KEY,
+      timeMin:      start.toISOString(),
+      timeMax:      end.toISOString(),
+      maxResults:   MAX_EVENTS,
+      singleEvents: true,
+      orderBy:      'startTime'
     });
 
     fetch(`https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` + params)
       .then(res => res.json().then(json => {
-        if (!res.ok) {
-          throw new Error((json.error && json.error.message) || `HTTP ${res.status}`);
-        }
+        if (!res.ok) throw new Error((json.error && json.error.message) || `HTTP ${res.status}`);
         return json;
       }))
       .then(data => {
         const container = document.getElementById('calendar');
-        // prepare empty array for each day
+        // prepare day slots
         const days = [];
         for (let i = 0; i < DAYS; i++) {
           const d = new Date(start);
           d.setDate(d.getDate() + i);
           days.push({ date: d, events: [] });
         }
-        // group events into days
+        // group events by day
         data.items.forEach(ev => {
           const dt = new Date(ev.start.dateTime || ev.start.date);
-          // find matching day slot
           days.forEach(slot => {
             if (slot.date.toDateString() === dt.toDateString()) {
               slot.events.push(ev);
             }
           });
         });
-        // render
+
+        // render each day-block
         days.forEach(slot => {
           const block = document.createElement('div');
           block.className = 'day-block';
+
           const title = document.createElement('h4');
           title.textContent = slot.date.toDateString();
           block.appendChild(title);
 
           const ul = document.createElement('ul');
-          if (slot.events.length === 0) {
+          // only first MAX_PER_DAY events
+          const todays = slot.events.slice(0, MAX_PER_DAY);
+          if (todays.length === 0) {
             const li = document.createElement('li');
             li.textContent = 'No events.';
             ul.appendChild(li);
           } else {
-            slot.events.forEach(ev => {
+            todays.forEach(ev => {
               const li = document.createElement('li');
               const time = new Date(ev.start.dateTime || ev.start.date)
                               .toLocaleTimeString();
               li.innerHTML = `<span class="time">${time}</span>${ev.summary}`;
-              // add location link
               if (ev.location) {
                 const rawLoc = ev.location.trim();
                 const href = rawLoc.match(/^https?:\/\//i)
@@ -147,5 +159,6 @@
         console.error(err);
       });
   </script>
+
 </body>
 </html>
