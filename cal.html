@@ -11,14 +11,38 @@
       background: #202020;
       color: #fff;
     }
-    h3 { margin: 0 0 16px; }
-    ul { list-style: none; padding: 0; margin: 0; }
-    li { padding: 12px 0; border-bottom: 1px solid #444; }
-    .time { font-weight: bold; margin-right: 8px; }
-    .description { font-size: 0.9em; color: #ccc; margin: 6px 0; }
-    .location { display: block; margin-top: 6px; font-size: 0.9em; }
-    .location a { color: #8af; text-decoration: underline; cursor: pointer; }
-    #err { color: #f88; padding: 12px; margin-top: 16px; }
+    h3 {
+      margin: 0 0 16px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      padding: 12px 0;
+      border-bottom: 1px solid #444;
+    }
+    .time {
+      font-weight: bold;
+      margin-right: 8px;
+    }
+    .location {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.9em;
+    }
+    .location a {
+      color: #8af;
+      text-decoration: underline;
+      cursor: pointer;
+      href: "javascript:void(0)";
+    }
+    #err {
+      color: #f88;
+      padding: 12px;
+      margin-top: 16px;
+    }
   </style>
 </head>
 <body>
@@ -31,67 +55,70 @@
    const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
+    const MAX_EVENTS = 10;
 
     // Read offset and LSL callback URL
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
-    const lslUrl = params.get('lsl');
+    const lslUrl = params.get('lsl') || '';
 
+    // Compute the start/end window for today+offset
     function getWindow(o) {
-      const s = new Date(); s.setHours(0,0,0,0); s.setDate(s.getDate()+o);
-      const e = new Date(s); e.setHours(23,59,59,999);
-      return { timeMin: s.toISOString(), timeMax: e.toISOString(), label: s.toDateString() };
+      const start = new Date();
+      start.setHours(0,0,0,0);
+      start.setDate(start.getDate() + o);
+      const end = new Date(start);
+      end.setHours(23,59,59,999);
+      return {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        label:   start.toDateString()
+      };
     }
 
     (function(){
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
-                + new URLSearchParams({
-                    key:         API_KEY,
-                    timeMin,
-                    timeMax,
-                    maxResults:  MAX_EVENTS,
-                    singleEvents:true,
-                    orderBy:     'startTime'
-                  });
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
+        new URLSearchParams({
+          key:         API_KEY,
+          timeMin,
+          timeMax,
+          maxResults:  MAX_EVENTS,
+          singleEvents:true,
+          orderBy:     'startTime'
+        });
 
       fetch(url)
-        .then(res => res.json().then(json => {
-          if (!res.ok) throw new Error((json.error && json.error.message) || `HTTP ${res.status}`);
-          return json;
-        }))
+        .then(res => {
+          if (!res.ok) throw new Error(`API error ${res.status}`);
+          return res.json();
+        })
         .then(data => {
           const ul = document.getElementById('events');
+          ul.innerHTML = '';  // clear old items
+
           if (!data.items || data.items.length === 0) {
             ul.innerHTML = '<li>No events.</li>';
             return;
           }
 
           data.items.forEach(ev => {
-            const li = document.createElement('li');
             const start = new Date(ev.start.dateTime || ev.start.date)
                             .toLocaleTimeString();
+            const li = document.createElement('li');
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
 
-            // description
-            if (ev.description) {
-              const desc = document.createElement('div');
-              desc.className = 'description';
-              desc.textContent = ev.description;
-              li.appendChild(desc);
-            }
-
-            // clickable location → callback into LSL
+            // Location callback link
             if (ev.location && lslUrl) {
               const rawLoc = ev.location.trim();
               const locEl = document.createElement('div');
               locEl.className = 'location';
               const a = document.createElement('a');
-              a.href       = "javascript:void(0)";  
+              a.href = "javascript:void(0)";
               a.textContent = rawLoc;
-              a.onclick    = () => {
+              a.onclick = () => {
                 fetch(lslUrl + '?loc=' + encodeURIComponent(rawLoc))
                   .catch(console.error);
               };
