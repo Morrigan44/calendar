@@ -38,23 +38,22 @@
    const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
-    const MAX_EVENTS = 10;
 
-    // Grab the query params injected by the LSL script
+    // Grab query params from the prim’s media URL
     const params = new URLSearchParams(window.location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
     const lslUrl = params.get('lsl') || '';
 
     function getWindow(o) {
-      const start = new Date();
-      start.setHours(0,0,0,0);
-      start.setDate(start.getDate() + o);
-      const end = new Date(start);
-      end.setHours(23,59,59,999);
+      const s = new Date();
+      s.setHours(0,0,0,0);
+      s.setDate(s.getDate() + o);
+      const e = new Date(s);
+      e.setHours(23,59,59,999);
       return {
-        timeMin: start.toISOString(),
-        timeMax: end.toISOString(),
-        label:   start.toDateString()
+        timeMin: s.toISOString(),
+        timeMax: e.toISOString(),
+        label:   s.toDateString()
       };
     }
 
@@ -79,7 +78,7 @@
         })
         .then(data => {
           const ul = document.getElementById('events');
-          ul.innerHTML = '';  // clear any old entries
+          ul.innerHTML = '';  // clear previous results
 
           if (!data.items || data.items.length === 0) {
             ul.innerHTML = '<li>No events.</li>';
@@ -87,22 +86,26 @@
           }
 
           data.items.forEach(ev => {
-            // Build the list item
             const li = document.createElement('li');
             const start = new Date(ev.start.dateTime || ev.start.date)
                             .toLocaleTimeString();
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
 
-            // Make the location a real link to the LSL callback
             if (ev.location && lslUrl) {
               const rawLoc = ev.location.trim();
               const locEl = document.createElement('div');
               locEl.className = 'location';
-              const a = document.createElement('a');
-              // real href → triggers the llRequestURL handler
-              a.href        = lslUrl + '?loc=' + encodeURIComponent(rawLoc);
-              a.textContent = rawLoc;
-              locEl.appendChild(a);
+              // href="#" so it’s clickable, but onclick does the work
+              locEl.innerHTML = `
+                <a href="#"
+                   onclick="
+                     fetch('${lslUrl}?loc=${encodeURIComponent(rawLoc)}')
+                       .catch(console.error);
+                     return false;
+                   ">
+                  ${rawLoc}
+                </a>
+              `;
               li.appendChild(locEl);
             }
 
