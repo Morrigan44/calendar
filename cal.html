@@ -1,53 +1,77 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>SL Calendar Display</title>
   <style>
-    body { margin: 0; font-family: sans-serif; background: #202020; color: #fff; }
-    ul { list-style: none; padding: 0; }
-    li { padding: 8px 0; border-bottom: 1px solid #444; }
-    .time { font-weight: bold; margin-right: 8px; }
+    body {
+      margin: 24px;               /* increased from 0 to 24px */
+      padding: 24px;              /* increased from 8px to 24px */
+      font-family: sans-serif;
+      background: #202020;
+      color: #fff;
+    }
+    h3 {
+      margin: 0 0 16px 0;         /* more space below the heading */
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    li {
+      padding: 12px 0;            /* a bit more vertical padding */
+      border-bottom: 1px solid #444;
+    }
+    .time {
+      font-weight: bold;
+      margin-right: 8px;
+    }
     .description {
       font-size: 0.9em;
       color: #ccc;
-      margin: 4px 0;
+      margin: 6px 0;
     }
-    .location { display: block; margin-top: 4px; font-size: 0.9em; }
-    .location a { color: #8af; text-decoration: underline; }
+    .location {
+      display: block;
+      margin-top: 6px;            /* slightly larger gap before location */
+      font-size: 0.9em;
+    }
+    .location a {
+      color: #8af;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    #err {
+      color: #f88;
+      padding: 12px;
+      margin-top: 16px;
+    }
   </style>
 </head>
 <body>
-  <h3 style="margin:8px;">Events for <span id="dayLabel">…</span></h3>
+  <h3>Events for <span id="dayLabel">…</span></h3>
   <ul id="events"></ul>
-  <div id="err" style="color:#f88; padding:8px;"></div>
+  <div id="err"></div>
 
   <script>
-    const CAL_ID_RAW = 'wgnews10@gmail.com';
+   const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
-    function getOffset() {
-      const n = parseInt(new URLSearchParams(location.search).get('offset'), 10);
-      return isNaN(n) ? 0 : n;
-    }
+    // Read offset and the LSL callback URL
+    const params = new URLSearchParams(location.search);
+    const offset = parseInt(params.get('offset'), 10) || 0;
+    const lslUrl = params.get('lsl');  // injected by LSL
 
-    function getWindow(offset) {
-      const start = new Date();
-      start.setHours(0,0,0,0);
-      start.setDate(start.getDate() + offset);
-      const end = new Date(start);
-      end.setHours(23,59,59,999);
-      return {
-        timeMin: start.toISOString(),
-        timeMax: end.toISOString(),
-        label:   start.toDateString()
-      };
+    function getWindow(o) {
+      const s = new Date(); s.setHours(0,0,0,0); s.setDate(s.getDate()+o);
+      const e = new Date(s); e.setHours(23,59,59,999);
+      return { timeMin: s.toISOString(), timeMax: e.toISOString(), label: s.toDateString() };
     }
 
     (function(){
-      const offset = getOffset();
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
@@ -63,10 +87,7 @@
 
       fetch(url)
         .then(res => res.json().then(json => {
-          if (!res.ok) {
-            const msg = (json.error && json.error.message) || `HTTP ${res.status}`;
-            throw new Error(msg);
-          }
+          if (!res.ok) throw new Error((json.error && json.error.message) || `HTTP ${res.status}`);
           return json;
         }))
         .then(data => {
@@ -75,36 +96,33 @@
             ul.innerHTML = '<li>No events.</li>';
             return;
           }
+
           data.items.forEach(ev => {
+            const li = document.createElement('li');
             const start = new Date(ev.start.dateTime || ev.start.date)
                             .toLocaleTimeString();
-            // build the base list item
-            const li = document.createElement('li');
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
 
-            // add description if present
+            // event description
             if (ev.description) {
-              const descEl = document.createElement('div');
-              descEl.className = 'description';
-              descEl.textContent = ev.description;
-              li.appendChild(descEl);
+              const desc = document.createElement('div');
+              desc.className = 'description';
+              desc.textContent = ev.description;
+              li.appendChild(desc);
             }
 
-            // if there's a location field, make it a link
-            if (ev.location) {
-              let href = '';
+            // location → callback into LSL
+            if (ev.location && lslUrl) {
               const rawLoc = ev.location.trim();
-              if (rawLoc.match(/^https?:\/\//i)) {
-                // if it's already a URL, link directly
-                href = rawLoc;
-              } else {
-                // otherwise link to Google Maps search
-                href = 'https://maps.google.com/?q=' 
-                     + encodeURIComponent(rawLoc);
-              }
               const locEl = document.createElement('div');
               locEl.className = 'location';
-              locEl.innerHTML = `<a href="${href}" target="_blank">${rawLoc}</a>`;
+              const a = document.createElement('a');
+              a.textContent = rawLoc;
+              a.onclick = () => {
+                fetch(lslUrl + '?loc=' + encodeURIComponent(rawLoc))
+                  .catch(console.error);
+              };
+              locEl.appendChild(a);
               li.appendChild(locEl);
             }
 
