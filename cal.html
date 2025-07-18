@@ -4,13 +4,7 @@
   <meta charset="utf-8">
   <title>SL Calendar Display</title>
   <style>
-    body {
-      margin: 24px;
-      padding: 24px;
-      font-family: sans-serif;
-      background: #202020;
-      color: #fff;
-    }
+    body { margin: 24px; padding: 24px; font-family: sans-serif; background: #202020; color: #fff; }
     h3 { margin: 0 0 16px; }
     ul { list-style: none; padding: 0; margin: 0; }
     li { padding: 12px 0; border-bottom: 1px solid #444; }
@@ -31,72 +25,52 @@
     const MAX_EVENTS = 10;
 
     const params = new URLSearchParams(window.location.search);
-    const offset = parseInt(params.get('offset'), 10) || 0;
-    const lslUrl = params.get('lsl') || '';
+    const offset = parseInt(params.get('offset'),10)||0;
+    const lslUrl = params.get('lsl')||'';
 
     function getWindow(o) {
       const s = new Date(); s.setHours(0,0,0,0); s.setDate(s.getDate()+o);
       const e = new Date(s); e.setHours(23,59,59,999);
-      return {
-        timeMin: s.toISOString(),
-        timeMax: e.toISOString(),
-        label:   s.toDateString()
-      };
+      return { timeMin:s.toISOString(), timeMax:e.toISOString(), label:s.toDateString() };
     }
 
     (function(){
-      const { timeMin, timeMax, label } = getWindow(offset);
+      const {timeMin,timeMax,label} = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
+      fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
         new URLSearchParams({
-          key:          API_KEY,
-          timeMin,
-          timeMax,
-          maxResults:   MAX_EVENTS,
+          key: API_KEY, timeMin, timeMax,
+          maxResults: MAX_EVENTS,
           singleEvents: true,
-          orderBy:      'startTime'
-        });
-
-      fetch(url)
-        .then(res => {
-          if (!res.ok) throw new Error(`API error ${res.status}`);
-          return res.json();
+          orderBy: 'startTime'
         })
-        .then(data => {
-          const ul = document.getElementById('events');
-          ul.innerHTML = '';
-
-          if (!data.items || !data.items.length) {
-            ul.innerHTML = '<li>No events.</li>';
-            return;
+      )
+      .then(r => { if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(data => {
+        const ul = document.getElementById('events');
+        ul.innerHTML = '';
+        if (!data.items || !data.items.length) {
+          ul.innerHTML = '<li>No events.</li>';
+          return;
+        }
+        data.items.forEach(ev => {
+          const start = new Date(ev.start.dateTime||ev.start.date)
+                          .toLocaleTimeString();
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
+          ul.appendChild(li);
+          // ping LSL with name & location
+          if (lslUrl) {
+            const img = new Image();
+            img.src = `${lslUrl}?e=${encodeURIComponent(ev.summary)}&loc=${encodeURIComponent(ev.location||'')}`;
           }
-
-          data.items.forEach(ev => {
-            const start = new Date(ev.start.dateTime || ev.start.date)
-                            .toLocaleTimeString();
-            // 1) Render time + title
-            const li = document.createElement('li');
-            li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
-            ul.appendChild(li);
-
-            // 2) POST the event name & location into LSL
-            if (lslUrl) {
-              const evName = encodeURIComponent(ev.summary);
-              const evLoc  = encodeURIComponent(ev.location||'');
-              fetch(lslUrl, {
-                method: 'POST',
-                headers: {
-                  'Content-Type':'application/x-www-form-urlencoded'
-                },
-                body: `e=${evName}&loc=${evLoc}`
-              }).catch(console.error);
-            }
-          });
-        })
-        .catch(err => {
-          document.getElementById('err').textContent = `Error: ${err.message}`;
         });
+      })
+      .catch(err => {
+        document.getElementById('err').textContent = `Error: ${err.message}`;
+      });
     })();
   </script>
 
