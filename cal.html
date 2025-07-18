@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -11,42 +11,14 @@
       background: #202020;
       color: #fff;
     }
-    h3 {
-      margin: 0 0 16px;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    li {
-      padding: 12px 0;
-      border-bottom: 1px solid #444;
-    }
-    .time {
-      font-weight: bold;
-      margin-right: 8px;
-    }
-    .description {
-      font-size: 0.9em;
-      color: #ccc;
-      margin: 6px 0;
-    }
-    .location {
-      display: block;
-      margin-top: 6px;
-      font-size: 0.9em;
-    }
-    .location a {
-      color: #8af;
-      text-decoration: underline;
-      cursor: pointer;
-    }
-    #err {
-      color: #f88;
-      padding: 12px;
-      margin-top: 16px;
-    }
+    h3 { margin: 0 0 16px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 12px 0; border-bottom: 1px solid #444; }
+    .time { font-weight: bold; margin-right: 8px; }
+    .description { font-size: 0.9em; color: #ccc; margin: 6px 0; }
+    .location { display: block; margin-top: 6px; font-size: 0.9em; }
+    .location a { color: #8af; text-decoration: underline; cursor: pointer; }
+    #err { color: #f88; padding: 12px; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -59,7 +31,6 @@
    const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
-    const MAX_EVENTS = 10;
 
     // Read offset and LSL callback URL
     const params = new URLSearchParams(location.search);
@@ -112,15 +83,15 @@
               li.appendChild(desc);
             }
 
-            // clickable location callback
+            // clickable location → callback into LSL
             if (ev.location && lslUrl) {
               const rawLoc = ev.location.trim();
               const locEl = document.createElement('div');
               locEl.className = 'location';
               const a = document.createElement('a');
-              a.href    = "javascript:void(0)";
+              a.href       = "javascript:void(0)";  
               a.textContent = rawLoc;
-              a.onclick = () => {
+              a.onclick    = () => {
                 fetch(lslUrl + '?loc=' + encodeURIComponent(rawLoc))
                   .catch(console.error);
               };
