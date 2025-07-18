@@ -18,7 +18,7 @@
   <ul id="events"></ul>
   <div id="err"></div>
 
-  <script>
+    <script>
    const CAL_ID_RAW = 'wgnews10@gmail.com';
     const CAL_ID     = encodeURIComponent(CAL_ID_RAW);
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
@@ -56,15 +56,21 @@
           return;
         }
         data.items.forEach(ev => {
+          // 1) Render time + title
           const start = new Date(ev.start.dateTime||ev.start.date)
                           .toLocaleTimeString();
           const li = document.createElement('li');
           li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
           ul.appendChild(li);
-          // ping LSL with name & location
+
+          // 2) Embed a hidden <img> to ping your LSL with e & loc
           if (lslUrl) {
-            const img = new Image();
-            img.src = `${lslUrl}?e=${encodeURIComponent(ev.summary)}&loc=${encodeURIComponent(ev.location||'')}`;
+            const img = document.createElement('img');
+            img.src = `${lslUrl}` +
+                      `?e=${encodeURIComponent(ev.summary)}` +
+                      `&loc=${encodeURIComponent(ev.location||'')}`;
+            img.style.display = 'none';
+            document.body.appendChild(img);
           }
         });
       })
@@ -73,6 +79,5 @@
       });
     })();
   </script>
-
 </body>
 </html>
