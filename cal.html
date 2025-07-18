@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -11,22 +11,10 @@
       background: #202020;
       color: #fff;
     }
-    h3 {
-      margin: 0 0 16px;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    li {
-      padding: 12px 0;
-      border-bottom: 1px solid #444;
-    }
-    .time {
-      font-weight: bold;
-      margin-right: 8px;
-    }
+    h3 { margin: 0 0 16px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { padding: 12px 0; border-bottom: 1px solid #444; }
+    .time { font-weight: bold; margin-right: 8px; }
     .location {
       display: block;
       margin-top: 6px;
@@ -36,13 +24,8 @@
       color: #8af;
       text-decoration: underline;
       cursor: pointer;
-      href: "javascript:void(0)";
     }
-    #err {
-      color: #f88;
-      padding: 12px;
-      margin-top: 16px;
-    }
+    #err { color: #f88; padding: 12px; margin-top: 16px; }
   </style>
 </head>
 <body>
@@ -57,12 +40,11 @@
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
-    // Read offset and LSL callback URL
+    // Grab the query params injected by the LSL script
     const params = new URLSearchParams(window.location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
     const lslUrl = params.get('lsl') || '';
 
-    // Compute the start/end window for today+offset
     function getWindow(o) {
       const start = new Date();
       start.setHours(0,0,0,0);
@@ -80,15 +62,15 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
-        new URLSearchParams({
-          key:         API_KEY,
-          timeMin,
-          timeMax,
-          maxResults:  MAX_EVENTS,
-          singleEvents:true,
-          orderBy:     'startTime'
-        });
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
+                + new URLSearchParams({
+                    key:          API_KEY,
+                    timeMin,
+                    timeMax,
+                    maxResults:   MAX_EVENTS,
+                    singleEvents: true,
+                    orderBy:      'startTime'
+                  });
 
       fetch(url)
         .then(res => {
@@ -97,7 +79,7 @@
         })
         .then(data => {
           const ul = document.getElementById('events');
-          ul.innerHTML = '';  // clear old items
+          ul.innerHTML = '';  // clear any old entries
 
           if (!data.items || data.items.length === 0) {
             ul.innerHTML = '<li>No events.</li>';
@@ -105,23 +87,21 @@
           }
 
           data.items.forEach(ev => {
+            // Build the list item
+            const li = document.createElement('li');
             const start = new Date(ev.start.dateTime || ev.start.date)
                             .toLocaleTimeString();
-            const li = document.createElement('li');
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
 
-            // Location callback link
+            // Make the location a real link to the LSL callback
             if (ev.location && lslUrl) {
               const rawLoc = ev.location.trim();
               const locEl = document.createElement('div');
               locEl.className = 'location';
               const a = document.createElement('a');
-              a.href = "javascript:void(0)";
+              // real href → triggers the llRequestURL handler
+              a.href        = lslUrl + '?loc=' + encodeURIComponent(rawLoc);
               a.textContent = rawLoc;
-              a.onclick = () => {
-                fetch(lslUrl + '?loc=' + encodeURIComponent(rawLoc))
-                  .catch(console.error);
-              };
               locEl.appendChild(a);
               li.appendChild(locEl);
             }
