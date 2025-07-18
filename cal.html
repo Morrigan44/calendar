@@ -1,18 +1,18 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <title>SL Calendar Display</title>
   <style>
     body {
-      margin: 24px;               /* increased from 0 to 24px */
-      padding: 24px;              /* increased from 8px to 24px */
+      margin: 24px;
+      padding: 24px;
       font-family: sans-serif;
       background: #202020;
       color: #fff;
     }
     h3 {
-      margin: 0 0 16px 0;         /* more space below the heading */
+      margin: 0 0 16px;
     }
     ul {
       list-style: none;
@@ -20,7 +20,7 @@
       margin: 0;
     }
     li {
-      padding: 12px 0;            /* a bit more vertical padding */
+      padding: 12px 0;
       border-bottom: 1px solid #444;
     }
     .time {
@@ -34,7 +34,7 @@
     }
     .location {
       display: block;
-      margin-top: 6px;            /* slightly larger gap before location */
+      margin-top: 6px;
       font-size: 0.9em;
     }
     .location a {
@@ -50,6 +50,7 @@
   </style>
 </head>
 <body>
+
   <h3>Events for <span id="dayLabel">…</span></h3>
   <ul id="events"></ul>
   <div id="err"></div>
@@ -60,10 +61,10 @@
     const API_KEY    = 'AIzaSyAAhKKZtAqK4LNj0V6od_HbwWGltuei_oY';
     const MAX_EVENTS = 10;
 
-    // Read offset and the LSL callback URL
+    // Read offset and LSL callback URL
     const params = new URLSearchParams(location.search);
     const offset = parseInt(params.get('offset'), 10) || 0;
-    const lslUrl = params.get('lsl');  // injected by LSL
+    const lslUrl = params.get('lsl');
 
     function getWindow(o) {
       const s = new Date(); s.setHours(0,0,0,0); s.setDate(s.getDate()+o);
@@ -75,15 +76,15 @@
       const { timeMin, timeMax, label } = getWindow(offset);
       document.getElementById('dayLabel').textContent = label;
 
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?` +
-        new URLSearchParams({
-          key:         API_KEY,
-          timeMin,
-          timeMax,
-          maxResults:  MAX_EVENTS,
-          singleEvents:true,
-          orderBy:     'startTime'
-        });
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${CAL_ID}/events?`
+                + new URLSearchParams({
+                    key:         API_KEY,
+                    timeMin,
+                    timeMax,
+                    maxResults:  MAX_EVENTS,
+                    singleEvents:true,
+                    orderBy:     'startTime'
+                  });
 
       fetch(url)
         .then(res => res.json().then(json => {
@@ -103,7 +104,7 @@
                             .toLocaleTimeString();
             li.innerHTML = `<span class="time">${start}</span>${ev.summary}`;
 
-            // event description
+            // description
             if (ev.description) {
               const desc = document.createElement('div');
               desc.className = 'description';
@@ -111,12 +112,13 @@
               li.appendChild(desc);
             }
 
-            // location → callback into LSL
+            // clickable location callback
             if (ev.location && lslUrl) {
               const rawLoc = ev.location.trim();
               const locEl = document.createElement('div');
               locEl.className = 'location';
               const a = document.createElement('a');
+              a.href    = "javascript:void(0)";
               a.textContent = rawLoc;
               a.onclick = () => {
                 fetch(lslUrl + '?loc=' + encodeURIComponent(rawLoc))
@@ -135,5 +137,6 @@
         });
     })();
   </script>
+
 </body>
 </html>
